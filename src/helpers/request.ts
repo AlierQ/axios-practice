@@ -2,7 +2,7 @@
  * @Author: AlierQ 1029369938@qq.com
  * @Date: 2023-08-17 09:36:38
  * @LastEditors: AlierQ 1029369938@qq.com
- * @LastEditTime: 2023-08-17 16:23:00
+ * @LastEditTime: 2023-08-17 17:33:38
  * @FilePath: \axios-practice\src\helpers\request.ts
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -57,16 +57,13 @@ export const request = (config?: AxiosRequestConfig): AxiosInstance => {
     // 收到响应后的处理
     (response) => {
       console.log(response)
-      const { statusCode, data, message } = response.data
+      const { status, data } = response
       // 根据状态码进行处理
-      if (statusCode === 200) {
+      if (status === 200) {
         // 返回值自动会被作为Promise的resolve
         return data
-      } else if (statusCode === 401) {
-        // jump -> login
       } else {
-        console.log(message)
-        return Promise.reject(message)
+        return Promise.reject(response)
       }
     },
     // 响应错误处理
@@ -75,12 +72,44 @@ export const request = (config?: AxiosRequestConfig): AxiosInstance => {
       console.log("error-response:", error.response)
       console.log("error-config:", error.config)
       console.log("error-request:", error.request)
-      if (error.response) {
-        if (error.response.status === 401) {
-          // jump -> login
+      if (error.response.status) {
+        switch (error.response.status) {
+          // 未登录
+          case 401:
+            router.replace({
+              path: "/login",
+              query: {
+                // 重定向
+                redirect: router.currentRoute.fullPath,
+              },
+            })
+            break
+          // token 过期
+          case 403:
+            // 提示用户身份过期
+            // 清除token
+            localStorage.removeItem("token")
+            store.commit("loginSuccess", null)
+            // 跳转到登录页面
+            setTimeout(() => {
+              router.replace({
+                path: "/login",
+                query: {
+                  redirect: router.currentRoute.fullPath,
+                },
+              })
+            }, 1000)
+            break
+          // 404
+          // 404请求不存在
+          case 404:
+            // 提示不存在，跳转到404页面
+            break
+          // 其他错误，直接抛出错误提示
+          default:
+          // 抛出错误提示
         }
       }
-      console.log(error?.response?.data?.message || "服务端异常")
       return Promise.reject(error)
     }
   )
